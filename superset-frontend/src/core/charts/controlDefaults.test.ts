@@ -59,6 +59,14 @@ const fakePluginControls: JsonObject = {
             config: { type: 'CollectionControl', label: 'Fake Collection' },
           },
         ],
+        [
+          {
+            // Names `undefined` as its default, which several real controls
+            // do -- `shared-controls/mixins.tsx` among them.
+            name: 'explicitly_undefined',
+            config: { type: 'SelectControl', default: undefined },
+          },
+        ],
       ],
     },
   ],
@@ -82,6 +90,15 @@ test('a control that declares no default is absent, not undefined', () => {
   const defaults = charts.controlDefaults('control_defaults_fake');
 
   expect('column_collection' in defaults).toBe(false);
+});
+
+test('a control naming `undefined` as its default is absent too', () => {
+  // `'default' in config` is true for it, so the key would be present and
+  // hold `undefined` -- which is the one reading the contract above tells a
+  // caller it will never have to make.
+  const defaults = charts.controlDefaults('control_defaults_fake');
+
+  expect('explicitly_undefined' in defaults).toBe(false);
 });
 
 test('a visualization the registry does not know yields nothing', () => {

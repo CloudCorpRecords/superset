@@ -26,11 +26,7 @@
  * `type` rendered every secondary button as an outline instead of a filled
  * tint. Keeping the host on the same module is what stops the two drifting.
  */
-export {
-  Button,
-  getSecondaryButtonStyle,
-  getSecondaryButtonHoverStyles,
-} from '@apache-superset/core/components';
+export { Button } from '@apache-superset/core/components';
 export type {
   ButtonProps,
   OnClickHandler,

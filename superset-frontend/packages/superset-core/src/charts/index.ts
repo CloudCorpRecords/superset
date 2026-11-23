@@ -34,22 +34,47 @@
 
 import type { ReactElement } from 'react';
 
+/**
+ * A chart's form data: the same object Explore holds for a chart, and the one
+ * saved as a chart's `params`.
+ *
+ * Only the two keys the host itself reads are named. Everything else in a
+ * form data belongs to the plugin that draws the chart, differs per
+ * `viz_type`, and is not the host's to enumerate -- so any further key is
+ * accepted and passed through untouched.
+ *
+ * Both named keys are optional because a form data can genuinely arrive
+ * without them, and the component is specified for that: see `formData` on
+ * {@link AssetChartProps}.
+ */
+export interface ChartFormData {
+  /**
+   * The plugin that draws the chart, matching the key it registered under.
+   * Without it there is nothing to draw.
+   */
+  viz_type?: string;
+  /**
+   * What the chart is drawn from, as `"<id>__<type>"` -- for example
+   * `"12__table"`.
+   */
+  datasource?: string;
+  [key: string]: unknown;
+}
+
 /** What to draw, and how much room it has. */
 export interface AssetChartProps {
   /**
-   * The chart's form data: the same object Explore holds for a chart, and the
-   * one saved as a chart's `params`.
+   * The chart's form data.
    *
-   * `viz_type` names the plugin that draws it and `datasource` names what it
-   * is drawn from, as `"<id>__<type>"` (for example `"12__table"`). Without a
-   * `viz_type` there is nothing to draw, and the component says so rather than
-   * guessing.
+   * Without a `viz_type` there is nothing to draw, and the component says so
+   * rather than guessing. Without a `datasource` it draws what the query
+   * returns but has no dataset to label the chart from.
    *
    * Pass a stable reference. A new object every render is a new chart: the
    * component queries again whenever this changes identity, so build it with
    * `useMemo` from the values that actually define the chart.
    */
-  formData: object;
+  formData: ChartFormData;
   /**
    * The height of the area the chart fills. A number is pixels; a string is
    * any CSS length. Defaults to `"100%"`, which needs a parent with a height

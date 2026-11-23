@@ -26,6 +26,7 @@ import {
 import reducerIndex from 'spec/helpers/reducerIndex';
 import { SupersetClient } from '@superset-ui/core';
 import type { QueryFormData } from '@superset-ui/core';
+import type { charts as chartsApi } from '@apache-superset/core';
 import { requestChartDataResolved } from 'src/components/Chart/chartAction';
 import AssetChart from './AssetChart';
 import { charts } from '.';
@@ -61,7 +62,7 @@ const FORM_DATA = {
 };
 
 const renderChart = (
-  formData: object = FORM_DATA,
+  formData: chartsApi.ChartFormData = FORM_DATA,
   state: object = { explore: { datasource: LIVE_DATASOURCE } },
 ) =>
   render(<AssetChart formData={formData} />, {
@@ -74,7 +75,9 @@ let clientGet: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
   (requestChartDataResolved as jest.Mock).mockResolvedValue([{ data: [] }]);
-  clientGet = jest.spyOn(SupersetClient, 'get');
+  clientGet = jest.spyOn(SupersetClient, 'get').mockResolvedValue({
+    json: { result: { dataset: { id: 1, type: 'table' } } },
+  } as never);
 });
 
 afterEach(() => {
@@ -97,8 +100,11 @@ test('draws the form data it is given, queried as an unsaved chart', async () =>
     { formData: FORM_DATA },
     expect.any(AbortSignal),
   );
-  // On the dataset the page already holds, so no extra round trip.
-  expect(clientGet).not.toHaveBeenCalled();
+  // Looked up from the form data's own `datasource`, not from the dataset the
+  // page happens to hold.
+  expect(clientGet).toHaveBeenCalledWith({
+    endpoint: '/api/v1/explore/?datasource_id=1&datasource_type=table',
+  });
 });
 
 test('reports a loading state until the query answers', async () => {
@@ -129,7 +135,7 @@ test('reports a loading state until the query answers', async () => {
   );
 });
 
-test('survives a page with no dataset in its store, and fetches the one it names', async () => {
+test('fetches the dataset its form data names', async () => {
   clientGet.mockResolvedValue({
     json: { result: { dataset: { id: 1, type: 'table' } } },
   });
@@ -142,6 +148,20 @@ test('survives a page with no dataset in its store, and fetches the one it names
   expect(clientGet).toHaveBeenCalledWith({
     endpoint: '/api/v1/explore/?datasource_id=1&datasource_type=table',
   });
+});
+
+test("form data naming no dataset is not labelled with the page's", async () => {
+  // The store holds a dataset here, and the form data names none. Reusing it
+  // would caption the chart with an unrelated dataset's columns, so nothing
+  // is reused and nothing is looked up.
+  renderChart({ viz_type: 'table' });
+
+  await waitFor(() => {
+    expect(screen.getByTestId('super-chart')).toHaveTextContent(
+      'table undefined ds=undefined',
+    );
+  });
+  expect(clientGet).not.toHaveBeenCalled();
 });
 
 test('survives a store with no datasource and form data that names none', async () => {
@@ -251,6 +271,7 @@ test('aborts its query when it unmounts', async () => {
     new Promise(() => {}),
   );
   const { unmount } = renderChart();
+  await waitFor(() => expect(requestChartDataResolved).toHaveBeenCalled());
   const signal = (requestChartDataResolved as jest.Mock).mock
     .calls[0][1] as AbortSignal;
 

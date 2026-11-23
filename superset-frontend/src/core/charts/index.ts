@@ -32,16 +32,56 @@ import {
   expandControlConfig,
   isControlPanelSectionConfig,
 } from '@superset-ui/chart-controls';
-import getControlsForVizType from 'src/utils/getControlsForVizType';
 import AssetChart from './AssetChart';
 
 /**
- * Explore's own labels for a visualization's controls.
+ * Every control a visualization declares, expanded the way Explore expands
+ * them.
  *
- * The same lookup `AlteredSliceTag` uses to name the keys in Superset's own
- * "this chart differs from its saved version" diff, down to the
- * label-or-raw-key fallback, so an extension describing a chart's `params`
- * reads the way the rest of the app does.
+ * `getSectionsToRender` resolves a string shorthand against `sharedControls`
+ * and applies the plugin's `controlOverrides`. Both readers below walk this
+ * one sequence, so a control's label and its default are always read off the
+ * same resolved config: a plugin overriding a shared control moves both, and
+ * neither can be answered from a registry the other does not consult.
+ */
+function* expandedControls(
+  vizType: string,
+): Generator<{ name: string; config: Record<string, unknown> }> {
+  const { controlPanelSections = [], controlOverrides } =
+    (getChartControlPanelRegistry().get(vizType) ?? {}) as ControlPanelConfig;
+
+  for (const section of controlPanelSections.filter(
+    isControlPanelSectionConfig,
+  )) {
+    for (const row of section.controlSetRows) {
+      for (const item of row) {
+        const control = expandControlConfig(item, controlOverrides);
+        // A row also carries things that are not controls -- `<hr />` among
+        // them -- which expand to something with no name or no config.
+        if (
+          control &&
+          typeof control === 'object' &&
+          'name' in control &&
+          'config' in control &&
+          control.config &&
+          typeof control.config === 'object'
+        ) {
+          yield {
+            name: control.name as string,
+            config: control.config as Record<string, unknown>,
+          };
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Explore's own labels for a visualization's controls, by control name.
+ *
+ * The keys inside a chart's `params` are Explore control names, which an
+ * extension describing a change has no way to resolve on its own: the
+ * control panel registry is the host's.
  *
  * A label can be a node or a function for a dynamic control; only a plain
  * string survives, because only a string can be put in a sentence.
@@ -51,14 +91,13 @@ function controlLabels(vizType: string): Record<string, string> {
     return {};
   }
   try {
-    return Object.fromEntries(
-      Object.entries(getControlsForVizType(vizType) ?? {}).flatMap(
-        ([name, config]) =>
-          typeof (config as { label?: unknown })?.label === 'string'
-            ? [[name, (config as { label: string }).label]]
-            : [],
-      ),
-    );
+    const labels: Record<string, string> = {};
+    for (const { name, config } of expandedControls(vizType)) {
+      if (typeof config.label === 'string') {
+        labels[name] = config.label;
+      }
+    }
+    return labels;
   } catch {
     // A viz type the registry does not know. Raw keys are what the caller
     // would have shown anyway, so this is a worse answer, not a failure.
@@ -69,9 +108,9 @@ function controlLabels(vizType: string): Record<string, string> {
 /**
  * What each of a visualization's controls defaults to, by control name.
  *
- * The same registry walk as `controlLabels`, reading `default` instead of
- * `label`, because the two questions a reader of a chart's `params` has are
- * "what is this called?" and "did anyone actually set it?".
+ * The same walk as `controlLabels`, reading `default` instead of `label`,
+ * because the two questions a reader of a chart's `params` has are "what is
+ * this called?" and "did anyone actually set it?".
  *
  * Explore posts the whole hydrated form data on save, so a chart stored
  * without a control's key comes back carrying it at this value. Comparing
@@ -82,8 +121,9 @@ function controlLabels(vizType: string): Record<string, string> {
  * them: it compares `latestQueryFormData` against `sliceFormData`, both
  * already hydrated.
  *
- * Only controls that declare a `default` are included. An absent key means
- * there is nothing to compare against, which a caller must not read as a
+ * Only controls that default to something are included. A control declaring
+ * no default, or declaring `undefined` as one, is absent: there is nothing
+ * to compare against, and a caller must not read a key it finds here as a
  * default of `undefined`.
  */
 function controlDefaults(vizType: string): Record<string, unknown> {
@@ -91,28 +131,15 @@ function controlDefaults(vizType: string): Record<string, unknown> {
     return {};
   }
   try {
-    // Expanded the way Explore expands them (`getSectionsToRender`): string
-    // shorthands from `sharedControls`, with the plugin's `controlOverrides`
-    // applied, so a default here is the one Explore hydrates with.
-    const { controlPanelSections = [], controlOverrides } =
-      (getChartControlPanelRegistry().get(vizType) ?? {}) as ControlPanelConfig;
     const defaults: Record<string, unknown> = {};
-    controlPanelSections.filter(isControlPanelSectionConfig).forEach(section =>
-      section.controlSetRows.forEach(row =>
-        row.forEach(item => {
-          const control = expandControlConfig(item, controlOverrides);
-          if (
-            control &&
-            typeof control === 'object' &&
-            'config' in control &&
-            'default' in control.config &&
-            typeof control.config.default !== 'function'
-          ) {
-            defaults[control.name] = control.config.default;
-          }
-        }),
-      ),
-    );
+    for (const { name, config } of expandedControls(vizType)) {
+      if (
+        config.default !== undefined &&
+        typeof config.default !== 'function'
+      ) {
+        defaults[name] = config.default;
+      }
+    }
     return defaults;
   } catch {
     // A viz type the registry does not know. An empty object says "no

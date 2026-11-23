@@ -24,64 +24,99 @@
  * extension describing a change has no way to resolve: the control panel
  * registry is the host's. Without this it can only print the raw keys --
  * `adhoc_filters`, `color_by_primary_axis`, `axisTicks`.
+ *
+ * Read through the same expansion as `controlDefaults`, against the real
+ * registry rather than a mocked lookup, which is what lets the last case
+ * here hold the two to one answer.
  */
 
-import getControlsForVizType from 'src/utils/getControlsForVizType';
-import { charts } from '.';
+import { getChartControlPanelRegistry, JsonObject } from '@superset-ui/core';
+import { charts } from 'src/core/charts';
 
-jest.mock('src/utils/getControlsForVizType', () => ({
-  __esModule: true,
-  default: jest.fn(),
-}));
+const fakePluginControls: JsonObject = {
+  controlPanelSections: [
+    {
+      label: 'Fake Control Panel Section',
+      expanded: true,
+      controlSetRows: [
+        [
+          {
+            name: 'adhoc_filters',
+            config: { type: 'AdhocFilterControl', label: 'Filters' },
+          },
+        ],
+        [
+          {
+            name: 'row_limit',
+            config: { type: 'SelectControl', label: 'Row limit' },
+          },
+        ],
+        [
+          // A dynamic control's label can be a node or a function. Neither
+          // can go into a sentence, and `[object Object]` beside a setting
+          // name is worse than the raw key the caller falls back to.
+          { name: 'node_label', config: { label: { type: 'span' } } },
+          { name: 'fn_label', config: { label: () => 'Computed' } },
+          { name: 'no_label', config: { type: 'CheckboxControl' } },
+        ],
+      ],
+    },
+  ],
+};
 
-const lookup = getControlsForVizType as unknown as jest.Mock;
-
-afterEach(() => lookup.mockReset());
+beforeEach(() => {
+  getChartControlPanelRegistry().registerValue(
+    'control_labels_fake',
+    fakePluginControls,
+  );
+});
 
 test('a control is returned under its own name, by its label', () => {
-  lookup.mockReturnValue({
-    adhoc_filters: { label: 'Filters' },
-    row_limit: { label: 'Row limit' },
-  });
-
-  expect(charts.controlLabels('table')).toEqual({
+  expect(charts.controlLabels('control_labels_fake')).toMatchObject({
     adhoc_filters: 'Filters',
     row_limit: 'Row limit',
   });
 });
 
 test('a label that is not a plain string is left out, not stringified', () => {
-  // A dynamic control's label can be a node or a function. Neither can go
-  // into a sentence, and `[object Object]` beside a setting name is worse
-  // than the raw key the caller falls back to.
-  lookup.mockReturnValue({
-    plain: { label: 'Plain' },
-    node: { label: { type: 'span' } },
-    dynamic: { label: () => 'Computed' },
-    missing: {},
-  });
+  const labels = charts.controlLabels('control_labels_fake');
 
-  expect(charts.controlLabels('table')).toEqual({ plain: 'Plain' });
+  expect('node_label' in labels).toBe(false);
+  expect('fn_label' in labels).toBe(false);
+  expect('no_label' in labels).toBe(false);
 });
 
 test('a visualization type the registry does not know yields nothing', () => {
   // Empty, not a throw: the caller then shows raw keys, which is what it
   // would have shown anyway. Failing here would take the panel down over a
   // cosmetic lookup.
-  lookup.mockImplementation(() => {
-    throw new Error('no such viz type');
-  });
-
   expect(charts.controlLabels('not-a-viz')).toEqual({});
-});
-
-test('a registry answering nothing at all yields nothing', () => {
-  lookup.mockReturnValue(undefined);
-
-  expect(charts.controlLabels('table')).toEqual({});
 });
 
 test('an empty visualization type is not asked about', () => {
   expect(charts.controlLabels('')).toEqual({});
-  expect(lookup).not.toHaveBeenCalled();
+});
+
+test('a shared control is labelled from the same config it is defaulted from', () => {
+  // The two readers walk one expansion, so a string shorthand resolves
+  // against `sharedControls` for both and a `controlOverrides` entry moves
+  // both. Read from two registries, a key could be labelled from one and
+  // defaulted from the other, and an override would reach only the default.
+  getChartControlPanelRegistry().registerValue('control_labels_overridden', {
+    controlPanelSections: [
+      {
+        label: 'Query',
+        expanded: true,
+        controlSetRows: [['row_limit']],
+      },
+    ],
+    controlOverrides: { row_limit: { label: 'Rows to fetch', default: 100 } },
+  });
+
+  expect(charts.controlLabels('control_labels_overridden')).toMatchObject({
+    row_limit: 'Rows to fetch',
+  });
+  expect(charts.controlDefaults('control_labels_overridden')).toMatchObject({
+    row_limit: 100,
+  });
 });

@@ -25,8 +25,7 @@
  * form data" into "this chart", and to be honest about the states in between.
  */
 
-import { useContext, useEffect, useRef, useState } from 'react';
-import { ReactReduxContext } from 'react-redux';
+import { useEffect, useRef, useState } from 'react';
 import {
   getClientErrorObject,
   QueryData,
@@ -42,8 +41,6 @@ import { requestChartDataResolved } from 'src/components/Chart/chartAction';
 import type { Dataset } from 'src/components/Chart/types';
 
 type AssetChartProps = chartsApi.AssetChartProps;
-
-type DatasetWithKey = Dataset & { id?: number; type?: string };
 
 /** The form data's `datasource` is `"<id>__<type>"`; anything else is none. */
 const datasourceKey = (datasource: unknown): string | undefined =>
@@ -62,19 +59,6 @@ const fetchDatasourceMetadata = async (
 };
 
 /**
- * The dataset an open Explore session already holds, if there is one.
- *
- * Read from the store only to save a round trip, and only if there is a store
- * and an explore slice in it: this component also lives on pages that have
- * neither, where there is simply nothing to reuse.
- */
-const liveDatasourceIn = (
-  store: { getState: () => unknown } | undefined,
-): DatasetWithKey | undefined =>
-  (store?.getState() as { explore?: { datasource?: unknown } } | undefined)
-    ?.explore?.datasource as DatasetWithKey | undefined;
-
-/**
  * Draws a chart from form data. See `charts.AssetChart` in
  * `@apache-superset/core` for the contract.
  */
@@ -83,24 +67,14 @@ export default function AssetChart({
   height = '100%',
   width = '100%',
 }: AssetChartProps) {
-  const chartFormData = formData as QueryFormData;
-  // Read lazily, when a query starts, rather than subscribed to: a
-  // re-hydration of the session's datasource must not restart a chart that is
-  // already being drawn.
-  const store = useContext(ReactReduxContext)?.store;
-  const storeRef = useRef(store);
-  useEffect(() => {
-    storeRef.current = store;
-  }, [store]);
-
   const [queriesData, setQueriesData] = useState<QueryData[] | null>(null);
   const [datasource, setDatasource] = useState<Dataset | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetchIdRef = useRef(0);
 
-  const vizType = chartFormData?.viz_type;
-  const wantedDatasource = datasourceKey(chartFormData?.datasource);
+  const vizType = formData?.viz_type;
+  const wantedDatasource = datasourceKey(formData?.datasource);
 
   useEffect(() => {
     fetchIdRef.current += 1;
@@ -121,29 +95,43 @@ export default function AssetChart({
     setIsLoading(true);
 
     const load = async () => {
-      const live = liveDatasourceIn(storeRef.current);
-      const liveKey =
-        live?.id != null && live?.type ? `${live.id}__${live.type}` : undefined;
-      let meta: Dataset | undefined = live;
-      if (wantedDatasource && wantedDatasource !== liveKey) {
-        // The form data is on a dataset other than the one the page holds,
-        // so the page's metadata would label the chart with the wrong
-        // columns.
+      // Looked up for the datasource the form data names, and for no other.
+      // Reusing whatever dataset the page happened to hold would label a
+      // chart that names none with an unrelated dataset's columns, and
+      // reading it meant reaching into Explore's store shape from here.
+      //
+      // Alongside the query rather than before it: the metadata only labels
+      // the chart, so making the query wait on it would cost a round trip
+      // before any data is asked for. It also settles its own failure, so
+      // the pair below rejects only when the query does.
+      const wantedMetadata = async (): Promise<Dataset | undefined> => {
+        if (!wantedDatasource) {
+          return undefined;
+        }
         const [rawId, rawType] = wantedDatasource.split('__');
         try {
-          meta = await fetchDatasourceMetadata(Number(rawId), rawType);
+          return await fetchDatasourceMetadata(Number(rawId), rawType);
         } catch {
-          // The metadata only labels the chart. Whether the user may read
-          // its data is the query's call (it also honours chart and
-          // dashboard grants this lookup does not), and its refusal is the
-          // message the user gets.
-          meta = undefined;
+          // Whether the user may read this dataset's data is the query's
+          // call -- it also honours chart and dashboard grants this lookup
+          // does not -- and its refusal is the message the user gets.
+          return undefined;
         }
-      }
-      const result = await requestChartDataResolved(
-        { formData: chartFormData },
-        controller.signal,
-      );
+      };
+
+      const [meta, result] = await Promise.all([
+        wantedMetadata(),
+        requestChartDataResolved(
+          // `QueryFormData` requires `viz_type` and `datasource`; the
+          // published type leaves both optional because a caller may
+          // legitimately omit them. `viz_type` is established by the guard
+          // above, and the query is the right place for a missing
+          // `datasource` to be refused, so this is the one narrowing that
+          // stays.
+          { formData: formData as QueryFormData },
+          controller.signal,
+        ),
+      ]);
       if (fetchId !== fetchIdRef.current) {
         return;
       }
@@ -177,7 +165,7 @@ export default function AssetChart({
       fetchIdRef.current += 1;
       controller.abort();
     };
-  }, [chartFormData, vizType, wantedDatasource]);
+  }, [formData, vizType, wantedDatasource]);
 
   return (
     <div
@@ -207,7 +195,7 @@ export default function AssetChart({
             chartType={vizType}
             enableNoResults
             datasource={datasource}
-            formData={chartFormData}
+            formData={formData as QueryFormData}
             queriesData={queriesData}
             height="100%"
             width="100%"
