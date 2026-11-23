@@ -33,7 +33,12 @@
 
 import { navigation } from '.';
 
+// Spread, not replaced: `navigationUtils` re-exports this module, and the
+// navigation module reads `stripAppRoot` from it at import time. A mock that
+// names only `ensureAppRoot` leaves the rest undefined and the module under
+// test cannot load.
 jest.mock('src/utils/pathUtils', () => ({
+  ...jest.requireActual('src/utils/pathUtils'),
   ensureAppRoot: jest.fn((path: string) => `/analytics${path}`),
 }));
 
