@@ -133,14 +133,11 @@ export default function AssetChart({
         try {
           meta = await fetchDatasourceMetadata(Number(rawId), rawType);
         } catch {
-          if (fetchId === fetchIdRef.current) {
-            setError(
-              t(
-                'The dataset this chart is built on is not available, so the chart cannot be shown.',
-              ),
-            );
-          }
-          return;
+          // The metadata only labels the chart. Whether the user may read
+          // its data is the query's call (it also honours chart and
+          // dashboard grants this lookup does not), and its refusal is the
+          // message the user gets.
+          meta = undefined;
         }
       }
       const result = await requestChartDataResolved(
@@ -162,11 +159,13 @@ export default function AssetChart({
         const { error: clientError, message } = await getClientErrorObject(
           response as Parameters<typeof getClientErrorObject>[0],
         );
+        // Reading the error body is async too; the chart may have moved on.
+        if (fetchId !== fetchIdRef.current) {
+          return;
+        }
         // The query's own message is kept rather than replaced with a
         // generic failure: it is what says why the chart will not draw.
-        setError(
-          clientError || message || t('The chart could not be loaded.'),
-        );
+        setError(clientError || message || t('The chart could not be loaded.'));
       })
       .finally(() => {
         if (fetchId === fetchIdRef.current) {
@@ -187,11 +186,7 @@ export default function AssetChart({
       style={{ height, width, display: 'flex', flexDirection: 'column' }}
     >
       {!vizType && (
-        <Alert
-          type="warning"
-          closable={false}
-          data-test="asset-chart-empty"
-        >
+        <Alert type="warning" closable={false} data-test="asset-chart-empty">
           {t(
             'There is no chart to draw: the form data does not name a chart type.',
           )}
@@ -199,11 +194,7 @@ export default function AssetChart({
       )}
       {vizType && isLoading && <Loading />}
       {vizType && !isLoading && error && (
-        <Alert
-          type="error"
-          closable={false}
-          data-test="asset-chart-error"
-        >
+        <Alert type="error" closable={false} data-test="asset-chart-error">
           {error}
         </Alert>
       )}

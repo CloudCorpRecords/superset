@@ -26,6 +26,12 @@
  */
 
 import type { charts as chartsApi } from '@apache-superset/core';
+import { getChartControlPanelRegistry } from '@superset-ui/core';
+import {
+  type ControlPanelConfig,
+  expandControlConfig,
+  isControlPanelSectionConfig,
+} from '@superset-ui/chart-controls';
 import getControlsForVizType from 'src/utils/getControlsForVizType';
 import AssetChart from './AssetChart';
 
@@ -85,14 +91,29 @@ function controlDefaults(vizType: string): Record<string, unknown> {
     return {};
   }
   try {
-    return Object.fromEntries(
-      Object.entries(getControlsForVizType(vizType) ?? {}).flatMap(
-        ([name, config]) =>
-          config && typeof config === 'object' && 'default' in config
-            ? [[name, (config as { default: unknown }).default]]
-            : [],
+    // Expanded the way Explore expands them (`getSectionsToRender`): string
+    // shorthands from `sharedControls`, with the plugin's `controlOverrides`
+    // applied, so a default here is the one Explore hydrates with.
+    const { controlPanelSections = [], controlOverrides } =
+      (getChartControlPanelRegistry().get(vizType) ?? {}) as ControlPanelConfig;
+    const defaults: Record<string, unknown> = {};
+    controlPanelSections.filter(isControlPanelSectionConfig).forEach(section =>
+      section.controlSetRows.forEach(row =>
+        row.forEach(item => {
+          const control = expandControlConfig(item, controlOverrides);
+          if (
+            control &&
+            typeof control === 'object' &&
+            'config' in control &&
+            'default' in control.config &&
+            typeof control.config.default !== 'function'
+          ) {
+            defaults[control.name] = control.config.default;
+          }
+        }),
       ),
     );
+    return defaults;
   } catch {
     // A viz type the registry does not know. An empty object says "no
     // defaults available", which is the honest answer and the one the

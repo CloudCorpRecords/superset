@@ -25,7 +25,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Superset VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-11-19 04:39+0000\n"
+"POT-Creation-Date: 2026-11-23 07:55+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -146,7 +146,7 @@ msgstr ""
 msgid "\"%s\" is now the system default theme"
 msgstr ""
 
-#, no-python-format
+#, python-format
 msgid "% calculation"
 msgstr ""
 
@@ -166,7 +166,7 @@ msgstr ""
 msgid "% of grand total"
 msgstr ""
 
-#, no-python-format
+#, python-format
 msgid "% of parent"
 msgstr ""
 
@@ -174,7 +174,7 @@ msgstr ""
 msgid "% of row total"
 msgstr ""
 
-#, no-python-format
+#, python-format
 msgid "% of total"
 msgstr ""
 
@@ -10685,6 +10685,9 @@ msgstr ""
 msgid "Page navigation"
 msgstr ""
 
+msgid "Page not found"
+msgstr ""
+
 msgid "Paired t-test Table"
 msgstr ""
 
@@ -14566,6 +14569,9 @@ msgstr ""
 msgid "The category of source nodes used to assign colors. If a node is associated with more than one category, only the first will be used."
 msgstr ""
 
+msgid "The chart could not be loaded."
+msgstr ""
+
 msgid "The chart data is too large to download. Please try reducing the date range, limiting rows, or using fewer columns."
 msgstr ""
 
@@ -15414,6 +15420,9 @@ msgid "There is currently no information to display."
 msgstr ""
 
 msgid "There is no chart definition associated with this component, could it have been deleted?"
+msgstr ""
+
+msgid "There is no chart to draw: the form data does not name a chart type."
 msgstr ""
 
 msgid "There is not enough space for this component. Try decreasing its width, or increasing the destination width."
@@ -19329,7 +19338,4 @@ msgstr[0] ""
 msgstr[1] ""
 
 msgid "№"
-msgstr ""
-
-msgid "Page not found"
 msgstr ""

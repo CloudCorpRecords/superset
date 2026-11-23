@@ -31,4 +31,7 @@ export {
   getSecondaryButtonStyle,
   getSecondaryButtonHoverStyles,
 } from '@apache-superset/core/components';
-export type { ButtonProps, OnClickHandler } from '@apache-superset/core/components';
+export type {
+  ButtonProps,
+  OnClickHandler,
+} from '@apache-superset/core/components';

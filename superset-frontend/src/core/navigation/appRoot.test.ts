@@ -43,7 +43,7 @@ test('a path is rooted at the deployment', () => {
   );
 });
 
-test('it is the host\'s own ensureAppRoot, not a second copy of it', () => {
+test("it is the host's own ensureAppRoot, not a second copy of it", () => {
   // The point of publishing rather than reimplementing. If this ever stops
   // being the same function, an extension's link and the host's link to the
   // same screen can disagree about where that screen is.

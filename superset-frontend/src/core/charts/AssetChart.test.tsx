@@ -166,16 +166,31 @@ test('survives having no store at all', async () => {
   });
 });
 
-test('says so when the dataset it names is not available', async () => {
-  clientGet.mockRejectedValue(new Error('404'));
+test("leaves an unreadable dataset to the query's own refusal", async () => {
+  clientGet.mockRejectedValue(new Response('{}', { status: 403 }));
+  (requestChartDataResolved as jest.Mock).mockRejectedValue(
+    new Response(
+      JSON.stringify({ message: "You don't have access to this chart." }),
+      { status: 403 },
+    ),
+  );
 
   renderChart({ ...FORM_DATA, datasource: '9__table' });
 
   expect(await screen.findByTestId('asset-chart-error')).toHaveTextContent(
-    /dataset this chart is built on is not available/,
+    "You don't have access to this chart.",
   );
-  expect(requestChartDataResolved).not.toHaveBeenCalled();
-  expect(screen.queryByTestId('super-chart')).not.toBeInTheDocument();
+  expect(requestChartDataResolved).toHaveBeenCalled();
+});
+
+test('draws without metadata when only the lookup is refused', async () => {
+  clientGet.mockRejectedValue(new Response('{}', { status: 403 }));
+
+  renderChart({ ...FORM_DATA, datasource: '9__table' });
+
+  await waitFor(() => {
+    expect(screen.getByTestId('super-chart')).toHaveTextContent('ds=undefined');
+  });
 });
 
 test("keeps the query's own message when it fails", async () => {

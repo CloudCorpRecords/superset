@@ -17,7 +17,6 @@
  * under the License.
  */
 import { Children, ReactElement, Fragment, forwardRef, Ref } from 'react';
-import cx from 'classnames';
 import { Button as AntdButton } from 'antd';
 import { useTheme } from '../../theme';
 import { Tooltip } from '../Tooltip';
@@ -196,12 +195,14 @@ function ButtonInner(props: ButtonProps, ref: Ref<HTMLElement>) {
       danger={effectiveButtonStyle === 'danger'}
       color={color}
       // Static class names for embedded-dashboard CSS targeting
-      className={cx(
+      className={[
         className,
         'superset-button',
         `superset-button-${buttonStyle}`,
-        { cta: !!cta },
-      )}
+        cta && 'cta',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       css={{
         display: 'inline-flex',
         alignItems: 'center',

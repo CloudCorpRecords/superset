@@ -155,4 +155,6 @@ export declare function controlLabels(vizType: string): Record<string, string>;
  * const defaults = charts.controlDefaults('pie');
  * defaults.donut // false
  */
-export declare function controlDefaults(vizType: string): Record<string, unknown>;
+export declare function controlDefaults(
+  vizType: string,
+): Record<string, unknown>;

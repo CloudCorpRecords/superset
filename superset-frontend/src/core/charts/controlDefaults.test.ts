@@ -93,3 +93,21 @@ test('a visualization the registry does not know yields nothing', () => {
 test('no visualization type at all yields nothing', () => {
   expect(charts.controlDefaults('')).toEqual({});
 });
+
+test('a default is the one Explore writes, overrides and shared controls included', () => {
+  getChartControlPanelRegistry().registerValue('control_defaults_overridden', {
+    controlPanelSections: [
+      {
+        label: 'Query',
+        expanded: true,
+        controlSetRows: [['row_limit'], ['adhoc_filters']],
+      },
+    ],
+    controlOverrides: { row_limit: { default: 100 } },
+  });
+
+  expect(charts.controlDefaults('control_defaults_overridden')).toMatchObject({
+    row_limit: 100,
+    adhoc_filters: [],
+  });
+});

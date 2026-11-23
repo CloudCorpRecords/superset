@@ -19,4 +19,7 @@
 
 /** Re-exported from `@apache-superset/core/components`; Button depends on it. */
 export { Tooltip } from '@apache-superset/core/components';
-export type { TooltipProps, TooltipPlacement } from '@apache-superset/core/components';
+export type {
+  TooltipProps,
+  TooltipPlacement,
+} from '@apache-superset/core/components';

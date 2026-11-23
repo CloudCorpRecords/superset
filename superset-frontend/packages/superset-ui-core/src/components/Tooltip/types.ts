@@ -18,4 +18,7 @@
  */
 
 /** Re-exported from `@apache-superset/core/components`; see ./index.tsx. */
-export type { TooltipProps, TooltipPlacement } from '@apache-superset/core/components';
+export type {
+  TooltipProps,
+  TooltipPlacement,
+} from '@apache-superset/core/components';

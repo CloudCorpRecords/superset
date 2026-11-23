@@ -25,7 +25,7 @@
  * app shell to keep the page in sync with React Router.
  */
 
-import { ensureAppRoot } from 'src/utils/pathUtils';
+import { ensureAppRoot } from 'src/utils/navigationUtils';
 import { useEffect, useRef } from 'react';
 import { useLocation, matchPath } from 'react-router-dom';
 import type { navigation as navigationApi } from '@apache-superset/core';
