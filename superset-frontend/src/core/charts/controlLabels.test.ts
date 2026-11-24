@@ -97,6 +97,16 @@ test('an empty visualization type is not asked about', () => {
   expect(charts.controlLabels('')).toEqual({});
 });
 
+test('the controls Explore puts on every chart are labelled too', () => {
+  // The same sections `controlDefaults` reports defaults from. A reader
+  // handed `matrixify_enable` in a diff and no label for it falls back to
+  // the raw key for a control the author did see a name for in Explore.
+  expect(charts.controlLabels('control_labels_fake')).toMatchObject({
+    matrixify_enable: 'Enable matrixify',
+    matrixify_charts_per_row: 'Charts per row',
+  });
+});
+
 test('a shared control is labelled from the same config it is defaulted from', () => {
   // The two readers walk one expansion, so a string shorthand resolves
   // against `sharedControls` for both and a `controlOverrides` entry moves

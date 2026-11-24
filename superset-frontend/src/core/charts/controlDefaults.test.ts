@@ -103,12 +103,40 @@ test('a control naming `undefined` as its default is absent too', () => {
 
 test('a visualization the registry does not know yields nothing', () => {
   // The same answer `controlLabels` gives, and the honest one: no defaults
-  // are available, so a caller compares against nothing.
+  // are available, so a caller compares against nothing. Explore renders no
+  // control panel for an unknown type, so not even the sections it puts on
+  // every chart (below) are reported for one.
   expect(charts.controlDefaults('no_such_viz_type')).toEqual({});
 });
 
 test('no visualization type at all yields nothing', () => {
   expect(charts.controlDefaults('')).toEqual({});
+});
+
+test('the controls Explore puts on every chart are reported too', () => {
+  // `getSectionsToRender` renders the matrixify sections ahead of a
+  // plugin's own whatever the visualization, so Explore hydrates and saves
+  // their keys on a chart that has never been near the matrixify tab --
+  // `applyDefaultFormData({ viz_type: 'pie', ... }).matrixify_enable` is
+  // `false`. Left out here, every one of them reads as newly set on any
+  // chart resaved since matrixify landed, which is the one thing this API
+  // exists to prevent.
+  expect(charts.controlDefaults('control_defaults_fake')).toMatchObject({
+    matrixify_enable: false,
+    matrixify_mode_rows: 'disabled',
+    matrixify_charts_per_row: 4,
+  });
+});
+
+test('a key that identifies the chart rather than configuring it stays out', () => {
+  // Explore renders these from a section of its own, ahead of matrixify's.
+  // Walking that section too would report a `viz_type` default for every
+  // visualization -- `table`'s, since that is what the control defaults to.
+  const defaults = charts.controlDefaults('control_defaults_fake');
+
+  expect('viz_type' in defaults).toBe(false);
+  expect('datasource' in defaults).toBe(false);
+  expect('slice_id' in defaults).toBe(false);
 });
 
 test('a default is the one Explore writes, overrides and shared controls included', () => {

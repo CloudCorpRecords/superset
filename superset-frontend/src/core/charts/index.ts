@@ -32,6 +32,12 @@ import {
   expandControlConfig,
   isControlPanelSectionConfig,
 } from '@superset-ui/chart-controls';
+import {
+  matrixifyCells,
+  matrixifyColumns,
+  matrixifyEnableSection,
+  matrixifyRows,
+} from 'src/explore/controlPanels/sections';
 import AssetChart from './AssetChart';
 
 /**
@@ -43,16 +49,38 @@ import AssetChart from './AssetChart';
  * one sequence, so a control's label and its default are always read off the
  * same resolved config: a plugin overriding a shared control moves both, and
  * neither can be answered from a registry the other does not consult.
+ *
+ * The matrixify sections lead, because `getSectionsToRender` puts them ahead
+ * of every plugin's own whatever the visualization is: Explore hydrates and
+ * saves their keys on every chart, so a reader comparing a stored chart with
+ * a resaved one meets them everywhere. They are read from the same module
+ * Explore reads them from; `sectionOverrides` cannot reach them, since
+ * `SharedSectionAlias` names only the five sections that predate matrixify.
+ *
+ * Explore's datasource and viz type section is deliberately left out: those
+ * keys identify the chart rather than configure it, and the contract these
+ * two APIs publish says neither reports them.
  */
 function* expandedControls(
   vizType: string,
 ): Generator<{ name: string; config: Record<string, unknown> }> {
-  const { controlPanelSections = [], controlOverrides } =
-    (getChartControlPanelRegistry().get(vizType) ?? {}) as ControlPanelConfig;
+  const panel = getChartControlPanelRegistry().get(vizType) as
+    | ControlPanelConfig
+    | undefined;
+  // A visualization the registry has never seen: Explore would not render a
+  // control panel for it at all, matrixify's sections included.
+  if (!panel) {
+    return;
+  }
+  const { controlPanelSections = [], controlOverrides } = panel;
 
-  for (const section of controlPanelSections.filter(
-    isControlPanelSectionConfig,
-  )) {
+  for (const section of [
+    matrixifyEnableSection,
+    matrixifyColumns,
+    matrixifyRows,
+    matrixifyCells,
+    ...controlPanelSections,
+  ].filter(isControlPanelSectionConfig)) {
     for (const row of section.controlSetRows) {
       for (const item of row) {
         const control = expandControlConfig(item, controlOverrides);
